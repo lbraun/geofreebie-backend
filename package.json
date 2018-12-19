@@ -1,5 +1,5 @@
 {
-  "name": "geofreebie_backend",
+  "name": "geofreebie-backend",
   "version": "1.0.0",
   "description": "Backend for the geofreebie location-based freecycling app",
   "main": "index.js",
