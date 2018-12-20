@@ -1,8 +1,10 @@
+var mongoose = require("mongoose");
 var express = require("express");
 var bodyParser = require("body-parser");
 var mongodb = require("mongodb");
 var ObjectID = mongodb.ObjectID;
 
+var Contact = require("./contact");
 var CONTACTS_COLLECTION = "contacts";
 var USERS_COLLECTION = "users";
 
@@ -14,6 +16,10 @@ var db;
 
 // Connect to the database before starting the application server.
 var mongodb_uri = process.env.MONGODB_URI || "mongodb://localhost:27017/test";
+mongoose.connect(
+  mongodb_uri,
+  { useNewUrlParser: true }
+);
 mongodb.MongoClient.connect(mongodb_uri, { useNewUrlParser: true }, function (err, client) {
   if (err) {
     console.log(err);
