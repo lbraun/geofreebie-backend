@@ -8,6 +8,7 @@ var USERS_COLLECTION = "users";
 
 var app = express();
 app.use(bodyParser.json());
+app.use(cors());
 
 // Create a database variable outside of the database connection callback to reuse the connection pool in your app.
 var db;
