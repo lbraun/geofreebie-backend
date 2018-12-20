@@ -60,7 +60,8 @@ app.get("/api/contacts", function(req, res) {
 
 app.post("/api/contacts", function(req, res) {
   var newContact = req.body;
-  newContact.createDate = new Date();
+  newContact.createdAt = new Date();
+  newContact.updatedAt = new Date();
 
   if (!req.body.name) {
     handleError(res, "Invalid user input", "Must provide a name.", 400);
@@ -94,6 +95,7 @@ app.get("/api/contacts/:id", function(req, res) {
 app.put("/api/contacts/:id", function(req, res) {
   var updateDoc = req.body;
   delete updateDoc._id;
+  updateDoc.updatedAt = new Date();
 
   db.collection(CONTACTS_COLLECTION).updateOne({_id: new ObjectID(req.params.id)}, {$set: updateDoc}, function(err, doc) {
     if (err) {
@@ -134,7 +136,8 @@ app.get("/api/users", function(req, res) {
 
 app.post("/api/users", function(req, res) {
   var newUser = req.body;
-  newUser.createDate = new Date();
+  newUser.createdAt = new Date();
+  newUser.updatedAt = new Date();
 
   if (!req.body.name) {
     handleError(res, "Invalid user input", "Must provide a name.", 400);
@@ -168,6 +171,7 @@ app.get("/api/users/:id", function(req, res) {
 app.put("/api/users/:id", function(req, res) {
   var updateDoc = req.body;
   delete updateDoc._id;
+  updateDoc.updatedAt = new Date();
 
   db.collection(USERS_COLLECTION).updateOne({_id: new ObjectID(req.params.id)}, updateDoc, function(err, doc) {
     if (err) {

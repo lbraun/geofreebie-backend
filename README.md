@@ -23,7 +23,7 @@ ID=xyz
 curl -H "Content-Type: application/json" http://localhost:8080/api/contacts/$ID
 
 # Update
-curl -H "Content-Type: application/json" -X PUT -d '{"name":"Geofreebie Support Guys","email":"support@geofreebie.com","createDate":"2018-12-20T08:03:11.296Z"}' http://localhost:8080/api/contacts/$ID/
+curl -H "Content-Type: application/json" -X PUT -d '{"name":"Geofreebie Support Guys","email":"support@geofreebie.com"}' http://localhost:8080/api/contacts/$ID/
 
 # Delete
 curl -H "Content-Type: application/json" -X DELETE http://localhost:8080/api/contacts/$ID/
@@ -48,7 +48,7 @@ ID=xyz
 curl -H "Content-Type: application/json" http://localhost:8080/api/users/$ID
 
 # Update
-curl -H "Content-Type: application/json" -X PUT -d '{"name":"Geofreebie Support Guys","email":"support@geofreebie.com","createDate":"2018-12-20T08:03:11.296Z"}' http://localhost:8080/api/users/$ID/
+curl -H "Content-Type: application/json" -X PUT -d '{"name":"Geofreebie Support Guys","email":"support@geofreebie.com"}' http://localhost:8080/api/users/$ID/
 
 # Delete
 curl -H "Content-Type: application/json" -X DELETE http://localhost:8080/api/users/$ID/
