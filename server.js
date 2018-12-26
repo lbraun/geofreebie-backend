@@ -171,8 +171,8 @@ app.get("/api/users/:id", function(req, res) {
 });
 
 app.put("/api/users/:id", function(req, res) {
-  console.log("Update request:");
-  console.log(req);
+  console.log("Update request body:");
+  console.log(req.body);
 
   var updateDoc = req.body;
 
