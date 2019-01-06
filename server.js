@@ -198,3 +198,17 @@ app.delete("/api/users/:id", function(req, res) {
     }
   });
 });
+
+/*  "/api/auth0_users/:auth0_id"
+ *    GET: find user by auth0_id
+ */
+
+app.get("/api/auth0_users/:auth0_id", function(req, res) {
+  db.collection(USERS_COLLECTION).findOne({ auth0_id: req.params.auth0_id }, function(err, doc) {
+    if (err) {
+      handleError(res, err.message, "Failed to get user");
+    } else {
+      res.status(200).json(doc);
+    }
+  });
+});
