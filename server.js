@@ -123,7 +123,7 @@ app.delete("/api/contacts/:id", function(req, res) {
 
 /*  "/api/users"
  *    GET: finds all users
- *    POST: creates a new user
+ *    POST: finds or creates a new user based on auth0 user info
  */
 
 app.get("/api/users", function(req, res) {
@@ -137,18 +137,34 @@ app.get("/api/users", function(req, res) {
 });
 
 app.post("/api/users", function(req, res) {
-  var newUser = req.body;
-  newUser.createdAt = new Date();
-  newUser.updatedAt = new Date();
+  var user = req.body;
+  user.auth0Id = user.sub;
+  delete user.sub;
 
   if (!req.body.name) {
     handleError(res, "Invalid user input", "Must provide a name.", 400);
   } else {
-    db.collection(USERS_COLLECTION).insertOne(newUser, function(err, doc) {
+    // Check if user exists
+    db.collection(USERS_COLLECTION).findOne({auth0Id: user.auth0Id}, function(err, doc) {
       if (err) {
-        handleError(res, err.message, "Failed to create new user.");
+        handleError(res, err.message, "Failed to get user");
       } else {
-        res.status(201).json(doc.ops[0]);
+        if (doc) {
+          // User exists, so return it
+          res.status(200).json(doc);
+        } else {
+          // User doesn't exsist in database yet, so create it
+          user.createdAt = new Date();
+          user.updatedAt = new Date();
+
+          db.collection(USERS_COLLECTION).insertOne(user, function(err, doc) {
+            if (err) {
+              handleError(res, err.message, "Failed to create new user.");
+            } else {
+              res.status(201).json(doc.ops[0]);
+            }
+          });
+        }
       }
     });
   }
