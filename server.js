@@ -79,6 +79,7 @@ app.post("/api/users", function(req, res) {
           // User doesn't exsist in database yet, so create it
           user.createdAt = new Date();
           user.updatedAt = new Date();
+          user.newlyCreated = true;
 
           db.collection(USERS_COLLECTION).insertOne(user, function(err, doc) {
             if (err) {
