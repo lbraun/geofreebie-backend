@@ -7,7 +7,7 @@ var ObjectID = mongodb.ObjectID;
 var USERS_COLLECTION = "users";
 
 var app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({limit: "50mb"}));
 app.use(cors());
 
 // Create a database variable outside of the database connection callback to reuse the connection pool in your app.
