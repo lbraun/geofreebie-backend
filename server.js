@@ -5,6 +5,7 @@ var mongodb = require("mongodb");
 var ObjectID = mongodb.ObjectID;
 
 var USERS_COLLECTION = "users";
+var DATAPOINTS_COLLECTION = "datapoints";
 
 var app = express();
 app.use(bodyParser.json({limit: "50mb"}));
@@ -31,6 +32,30 @@ mongodb.MongoClient.connect(mongodb_uri, { useNewUrlParser: true }, function (er
     console.log("App now running on port", port);
   });
 });
+
+// Method to add datapoints from user updates
+function addUserUpdateDatapoint(userId, updatedAttributes) {
+  var user = db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(userId)});
+
+  for (var key in updatedAttributes) {
+      if (updatedAttributes.hasOwnProperty(key)) {
+          var oldValue = user[key];
+          var newValue = updatedAttributes[key];
+
+          recordDatapoint({
+            userId: userId,
+            coords: updatedAttributes.coords || user.coords,
+            action: `Updated ${key} from ${oldValue} to ${newValue}`,
+          });
+      }
+  }
+}
+
+// Method to record datapoints of all kinds
+function recordDatapoint(data) {
+  data.timestamp = new Date();
+  db.collection(DATAPOINTS_COLLECTION).insertOne(datapoint);
+}
 
 // *****************
 // * API ENDPOINTS *
@@ -95,7 +120,6 @@ app.post("/api/users", function(req, res) {
 /*  "/api/users/:id"
  *    GET: find user by id
  *    PUT: update user by id
- *    DELETE: deletes user by id
  */
 
 app.get("/api/users/:id", function(req, res) {
@@ -113,40 +137,19 @@ app.put("/api/users/:id", function(req, res) {
   console.log(req.body);
 
   var updateDoc = req.body;
+  var userId = req.params.id;
 
   delete updateDoc._id;
+  addUserUpdateDatapoint(userId, updateDoc);
   updateDoc.updatedAt = new Date();
 
-  db.collection(USERS_COLLECTION).updateOne({_id: new ObjectID(req.params.id)}, {$set: updateDoc}, function(err, doc) {
+
+  db.collection(USERS_COLLECTION).updateOne({_id: new ObjectID(userId)}, {$set: updateDoc}, function(err, doc) {
     if (err) {
       handleError(res, err.message, "Failed to update user");
     } else {
-      updateDoc._id = req.params.id;
+      updateDoc._id = userId;
       res.status(200).json(updateDoc);
-    }
-  });
-});
-
-app.delete("/api/users/:id", function(req, res) {
-  db.collection(USERS_COLLECTION).deleteOne({_id: new ObjectID(req.params.id)}, function(err, result) {
-    if (err) {
-      handleError(res, err.message, "Failed to delete user");
-    } else {
-      res.status(200).json(req.params.id);
-    }
-  });
-});
-
-/*  "/api/auth0_users/:auth0_id"
- *    GET: find user by auth0Id
- */
-
-app.get("/api/auth0_users/:auth0_id", function(req, res) {
-  db.collection(USERS_COLLECTION).findOne({ auth0Id: req.params.auth0_id }, function(err, doc) {
-    if (err) {
-      handleError(res, err.message, "Failed to get user");
-    } else {
-      res.status(200).json(doc);
     }
   });
 });
