@@ -40,6 +40,7 @@ function addUserUpdateDatapoint(userId, updatedAttributes) {
       console.log(err.message);
     } else {
       for (var key in updatedAttributes) {
+        if (key == "updatedAt") { continue; }
         if (updatedAttributes.hasOwnProperty(key)) {
           var oldValue = user[key];
           var newValue = updatedAttributes[key];
