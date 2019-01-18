@@ -61,8 +61,6 @@ app.get("/api/users", function(req, res) {
 
 app.post("/api/users", function(req, res) {
   var user = req.body;
-  user.auth0Id = user.sub;
-  delete user.sub;
 
   if (!req.body.name) {
     handleError(res, "Invalid user input", "Must provide a name.", 400);
