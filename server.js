@@ -35,25 +35,28 @@ mongodb.MongoClient.connect(mongodb_uri, { useNewUrlParser: true }, function (er
 
 // Method to add datapoints from user updates
 function addUserUpdateDatapoint(userId, updatedAttributes) {
-  var user = db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(userId)});
-
-  for (var key in updatedAttributes) {
-      if (updatedAttributes.hasOwnProperty(key)) {
+  db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(userId) }, function(err, user) {
+    if (err) {
+      console.log(err.message);
+    } else {
+      for (var key in updatedAttributes) {
+        if (updatedAttributes.hasOwnProperty(key)) {
           var oldValue = user[key];
           var newValue = updatedAttributes[key];
-
           recordDatapoint({
             userId: userId,
             coords: updatedAttributes.coords || user.coords,
             action: `Updated ${key} from ${oldValue} to ${newValue}`,
           });
+        }
       }
-  }
+    }
+  });
 }
 
 // Method to record datapoints of all kinds
-function recordDatapoint(data) {
-  data.timestamp = new Date();
+function recordDatapoint(datapoint) {
+  datapoint.timestamp = new Date();
   db.collection(DATAPOINTS_COLLECTION).insertOne(datapoint);
 }
 
