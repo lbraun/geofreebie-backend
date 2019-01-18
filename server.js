@@ -6,6 +6,7 @@ var ObjectID = mongodb.ObjectID;
 
 var USERS_COLLECTION = "users";
 var DATAPOINTS_COLLECTION = "datapoints";
+var recording = true;
 
 var app = express();
 app.use(bodyParser.json({limit: "50mb"}));
@@ -44,6 +45,7 @@ function addUserUpdateDatapoint(userId, updatedAttributes) {
         if (updatedAttributes.hasOwnProperty(key)) {
           var oldValue = user[key];
           var newValue = updatedAttributes[key];
+
           recordDatapoint({
             userId: userId,
             coords: updatedAttributes.coords || user.coords,
@@ -144,7 +146,11 @@ app.put("/api/users/:id", function(req, res) {
   var userId = req.params.id;
 
   delete updateDoc._id;
-  addUserUpdateDatapoint(userId, updateDoc);
+
+  if (recording) {
+    addUserUpdateDatapoint(userId, updateDoc);
+  }
+
   updateDoc.updatedAt = new Date();
 
 
