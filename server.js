@@ -93,17 +93,17 @@ app.get("/api/users", function(req, res) {
 app.post("/api/users", function(req, res) {
   var user = req.body;
 
-  if (!req.body.name) {
-    handleError(res, "Invalid user input", "Must provide a name.", 400);
+  if (!user.auth0Id) {
+    handleError(res, "Invalid user input", "Must provide an auth0Id.", 400);
   } else {
     // Check if user exists
-    db.collection(USERS_COLLECTION).findOne({auth0Id: user.auth0Id}, function(err, doc) {
+    db.collection(USERS_COLLECTION).findOne({auth0Id: user.auth0Id}, function(err, existingUser) {
       if (err) {
         handleError(res, err.message, "Failed to get user");
       } else {
-        if (doc) {
+        if (existingUser) {
           // User exists, so return it
-          res.status(200).json(doc);
+          res.status(200).json(existingUser);
         } else {
           // User doesn't exsist in database yet, so create it
           user.createdAt = new Date();
