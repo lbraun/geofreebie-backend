@@ -1,30 +1,29 @@
+var mongoose = require("mongoose");
 var express = require("express");
 var cors = require("cors");
 var bodyParser = require("body-parser");
 var mongodb = require("mongodb");
 var ObjectID = mongodb.ObjectID;
 
-var USERS_COLLECTION = "users";
-var DATAPOINTS_COLLECTION = "datapoints";
+var User = require("./user");
+var Datapoint = require("./datapoint");
+
 var recording = true;
 
 var app = express();
 app.use(bodyParser.json({limit: "50mb"}));
 app.use(cors());
 
-// Create a database variable outside of the database connection callback to reuse the connection pool in your app.
-var db;
+var mongodbUri = process.env.MONGODB_URI || "mongodb://localhost:27017/test";
 
-// Connect to the database before starting the application server.
-var mongodb_uri = process.env.MONGODB_URI || "mongodb://localhost:27017/test";
-mongodb.MongoClient.connect(mongodb_uri, { useNewUrlParser: true }, function (err, client) {
-  if (err) {
-    console.log(err);
-    process.exit(1);
-  }
+mongoose.connect(
+  mongodbUri,
+  { useNewUrlParser: true }
+);
 
-  // Save database object from the callback for reuse.
-  db = client.db();
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function () {
   console.log("Database connection ready");
 
   // Initialize the app.
@@ -36,36 +35,57 @@ mongodb.MongoClient.connect(mongodb_uri, { useNewUrlParser: true }, function (er
 
 // Method to add datapoints from user updates
 function addUserUpdateDatapoint(userId, updatedAttributes) {
-  db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(userId) }, function(err, user) {
+  User.findById(userId, function(err, user) {
     if (err) {
       console.log(err.message);
     } else {
-      for (var key in updatedAttributes) {
-        if (key == "updatedAt") { continue; }
-        if (updatedAttributes.hasOwnProperty(key)) {
-          var oldValue = user[key];
-          var newValue = updatedAttributes[key];
+      if (user) {
+        for (var key in updatedAttributes) {
+          if (key == "updatedAt") { continue; }
+          if (updatedAttributes.hasOwnProperty(key)) {
+            var oldValue = user[key];
+            var newValue = updatedAttributes[key];
 
-          recordDatapoint({
-            userId: userId,
-            coords: updatedAttributes.coords || user.coords,
-            action: `Updated ${key} from ${oldValue} to ${newValue}`,
-          });
+            recordDatapoint({
+              userId: userId,
+              coords: updatedAttributes.coords || user.coords,
+              action: `Updated ${key} from ${oldValue} to ${newValue}`,
+            });
+          }
         }
+      } else {
+        recordDatapoint({
+          userId: userId,
+          coords: updatedAttributes.coords,
+          action: `Created user with attributes ${updatedAttributes}`,
+        });
       }
     }
   });
 }
 
 // Method to record datapoints of all kinds
-function recordDatapoint(datapoint) {
-  datapoint.timestamp = new Date();
-  db.collection(DATAPOINTS_COLLECTION).insertOne(datapoint);
+function recordDatapoint(data) {
+  var datapoint = new Datapoint(data);
+
+  datapoint.save(function (err, datapoint) {
+    if (err) return console.error(err);
+  });
 }
+
 
 // *****************
 // * API ENDPOINTS *
 // *****************
+
+var router = express.Router();
+
+// Middleware to use for all requests
+router.use(function(req, res, next) {
+    console.log("\n>>>>> " + req.method + " " + req.originalUrl);
+    console.log(">>>>> body: " + JSON.stringify(req.body));
+    next(); // Make sure we go to the next routes and don't stop here
+});
 
 // Generic error handler used by all endpoints.
 function handleError(res, reason, message, code) {
@@ -75,91 +95,122 @@ function handleError(res, reason, message, code) {
 
 // USERS API ROUTES BELOW
 
-/*  "/api/users"
- *    GET: finds all users
- *    POST: finds or creates a new user based on auth0 user info
- */
+// Routes that end in /users
+// ----------------------------------------------------
+router.route('/users')
 
-app.get("/api/users", function(req, res) {
-  db.collection(USERS_COLLECTION).find({}).toArray(function(err, docs) {
-    if (err) {
-      handleError(res, err.message, "Failed to get users.");
+  // Find all users
+  .get(function(req, res) {
+    User.find(function(err, users) {
+        if (err) {
+          handleError(res, err.message, "Failed to get users.");
+        } else {
+          res.status(200).json(users);
+        }
+    })
+  })
+
+  // Find or create a new user based on auth0 user info
+  .post(function(req, res) {
+    var user = req.body;
+
+    if (!user.auth0Id) {
+      handleError(res, "Invalid user input", "Must provide an auth0Id.", 400);
     } else {
-      res.status(200).json(docs);
+      // Check if user exists
+      User.findOne({ auth0Id: user.auth0Id }, function(err, existingUser) {
+        if (err) {
+          handleError(res, err.message, "Failed to check if user exists.");
+        } else {
+          if (existingUser) {
+            // User exists, so return it
+            res.status(200).json({ _id: existingUser.id });
+          } else {
+            // User doesn't exsist in database yet, so create it
+            var newUser = new User(user);
+            newUser.newlyCreated = true;
+
+            newUser.save(function(err) {
+              if (err) {
+                handleError(res, err.message, "Failed to create new user.");
+              } else {
+                res.status(201).json({ _id: newUser.id });
+              }
+            });
+          }
+        }
+      });
     }
   });
-});
 
-app.post("/api/users", function(req, res) {
-  var user = req.body;
 
-  if (!req.body.name) {
-    handleError(res, "Invalid user input", "Must provide a name.", 400);
-  } else {
-    // Check if user exists
-    db.collection(USERS_COLLECTION).findOne({auth0Id: user.auth0Id}, function(err, doc) {
+// Routes that end in /users/:user_id
+// ----------------------------------------------------
+router.route("/users/:user_id")
+
+  // Find a user by id
+  .get(function(req, res) {
+    User.findById(req.params.user_id, function(err, user) {
       if (err) {
-        handleError(res, err.message, "Failed to get user");
+        handleError(res, err.message, "Failed to get user.");
       } else {
-        if (doc) {
-          // User exists, so return it
-          res.status(200).json(doc);
-        } else {
-          // User doesn't exsist in database yet, so create it
-          user.createdAt = new Date();
-          user.updatedAt = new Date();
-          user.newlyCreated = true;
-
-          db.collection(USERS_COLLECTION).insertOne(user, function(err, doc) {
-            if (err) {
-              handleError(res, err.message, "Failed to create new user.");
-            } else {
-              res.status(201).json(doc.ops[0]);
-            }
-          });
-        }
+        res.status(200).json(user);
       }
     });
-  }
-});
+  })
 
-/*  "/api/users/:id"
- *    GET: find user by id
- *    PUT: update user by id
- */
+  // Update a user by id
+  .put(function(req, res) {
+    User.findById(req.params.user_id, function(err, user) {
+      if (err) {
+        handleError(res, err.message, "Failed to get user for updating.");
+      } else {
+        if (!user) {
+          handleError(res, "Invalid user id", "User not found", 404);
+        }
 
-app.get("/api/users/:id", function(req, res) {
-  db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(req.params.id) }, function(err, doc) {
-    if (err) {
-      handleError(res, err.message, "Failed to get user");
-    } else {
-      res.status(200).json(doc);
-    }
+        var whitelistedAttributes = {
+          "approved":           false,
+          "auth0Id":            false,
+          "contactInformation": true,
+          "coords":             true,
+          "family_name":        true,
+          "gender":             true,
+          "given_name":         true,
+          "hasConsented":       true,
+          "locale":             true,
+          "loginsCount":        true,
+          "name":               true,
+          "newlyCreated":       true,
+          "nickname":           true,
+          "offer":              true,
+          "offersCompleted":    true,
+          "picture":            true,
+          "shareLocation":      true,
+          "useLocation":        true,
+        };
+
+        for (var attribute in req.body) {
+          if (whitelistedAttributes[attribute]) {
+            user[attribute] = req.body[attribute];
+          } else {
+            console.log("Trying to update non-whitelisted attribute " + attribute);
+          }
+        }
+
+        if (recording) {
+          addUserUpdateDatapoint(user.id, req.body);
+        }
+
+        user.save(function(err) {
+          if (err) {
+            handleError(res, err.message, "Failed to update user.");
+          } else {
+            res.status(201).json({ _id: user.id });
+          }
+        });
+      }
+    });
   });
-});
 
-app.put("/api/users/:id", function(req, res) {
-  console.log("Update request body:");
-  console.log(req.body);
-
-  var updateDoc = req.body;
-  var userId = req.params.id;
-
-  delete updateDoc._id;
-
-  if (recording) {
-    addUserUpdateDatapoint(userId, updateDoc);
-  }
-
-  updateDoc.updatedAt = new Date();
-
-
-  db.collection(USERS_COLLECTION).updateOne({_id: new ObjectID(userId)}, {$set: updateDoc}, function(err, doc) {
-    if (err) {
-      handleError(res, err.message, "Failed to update user");
-    } else {
-      updateDoc._id = userId;
-      res.status(200).json(updateDoc);
-    }
-  });
-});
+app.use('/api', router);
