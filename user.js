@@ -1,24 +1,48 @@
 const mongoose = require("mongoose");
-const Schema = mongoose.Schema;
 
-// this will be our database's data structure
-const UserSchema = new Schema(
-  {
-    id: Number,
-    name: String,
-    password: String,
-    role: String,
-    contactInformation: String,
-    offerDescription: String,
-    joinDate: Date,
-    lastLoginDate: Date,
-    longitude: Number,
-    latitude: Number,
-    useLocation: false,
-    shareLocation: false
+const userSchema = new mongoose.Schema({
+  approved: Boolean,
+  auth0Id: String,
+  contactInformation: {
+    email:       { type: String, default: "" },
+    facebook:    { type: String, default: "" },
+    phone:       { type: String, default: "" },
+    whatsapp:    { type: String, default: "" },
+    useEmail:    { type: Boolean, default: false },
+    useFacebook: { type: Boolean, default: false },
+    usePhone:    { type: Boolean, default: false },
+    useWhatsapp: { type: Boolean, default: false },
   },
-  { timestamps: true }
-);
+  coords: [Number],
+  family_name: String,
+  gender: String,
+  given_name: String,
+  hasConsented: Boolean,
+  locale: String,
+  loginsCount: Number,
+  name: String,
+  newlyCreated: Boolean,
+  nickname: String,
+  offer: {
+      title: String,
+      picture: String,
+      description: String,
+      available: Boolean,
+  },
+  offersCompleted: Number,
+  picture: String,
+  shareLocation: Boolean,
+  useLocation: Boolean,
+},
+{
+  timestamps: true
+});
 
-// export the new Schema so we could modify it using Node.js
-module.exports = mongoose.model("User", UserSchema);
+userSchema.methods.speak = function () {
+  var greeting = this.name
+    ? "My name is " + this.name
+    : "I don't have a name";
+    console.log(greeting);
+}
+
+module.exports = mongoose.model("User", userSchema);
