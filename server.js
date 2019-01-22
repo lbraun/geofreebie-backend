@@ -1,15 +1,18 @@
 var mongoose = require("mongoose");
 var express = require("express");
+var cors = require("cors");
 var bodyParser = require("body-parser");
 var mongodb = require("mongodb");
 var ObjectID = mongodb.ObjectID;
 
-var Contact = require("./contact");
-var CONTACTS_COLLECTION = "contacts";
+var User = require("./user");
 var USERS_COLLECTION = "users";
+var DATAPOINTS_COLLECTION = "datapoints";
+var recording = true;
 
 var app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({limit: "50mb"}));
+app.use(cors());
 
 // Create a database variable outside of the database connection callback to reuse the connection pool in your app.
 var db;
@@ -37,6 +40,43 @@ mongodb.MongoClient.connect(mongodb_uri, { useNewUrlParser: true }, function (er
   });
 });
 
+// Method to add datapoints from user updates
+function addUserUpdateDatapoint(userId, updatedAttributes) {
+  db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(userId) }, function(err, user) {
+    if (err) {
+      console.log(err.message);
+    } else {
+      if (user) {
+        for (var key in updatedAttributes) {
+          if (key == "updatedAt") { continue; }
+          if (updatedAttributes.hasOwnProperty(key)) {
+            var oldValue = user[key];
+            var newValue = updatedAttributes[key];
+
+            recordDatapoint({
+              userId: userId,
+              coords: updatedAttributes.coords || user.coords,
+              action: `Updated ${key} from ${oldValue} to ${newValue}`,
+            });
+          }
+        }
+      } else {
+        recordDatapoint({
+          userId: userId,
+          coords: updatedAttributes.coords,
+          action: `Created user with attributes ${updatedAttributes}`,
+        });
+      }
+    }
+  });
+}
+
+// Method to record datapoints of all kinds
+function recordDatapoint(datapoint) {
+  datapoint.timestamp = new Date();
+  db.collection(DATAPOINTS_COLLECTION).insertOne(datapoint);
+}
+
 // *****************
 // * API ENDPOINTS *
 // *****************
@@ -47,88 +87,16 @@ function handleError(res, reason, message, code) {
   res.status(code || 500).json({"error": message});
 }
 
-// CONTACTS API ROUTES BELOW
-
-/*  "/api/contacts"
- *    GET: finds all contacts
- *    POST: creates a new contact
- */
-
-app.get("/api/contacts", function(req, res) {
-  db.collection(CONTACTS_COLLECTION).find({}).toArray(function(err, docs) {
-    if (err) {
-      handleError(res, err.message, "Failed to get contacts.");
-    } else {
-      res.status(200).json(docs);
-    }
-  });
-});
-
-app.post("/api/contacts", function(req, res) {
-  var newContact = req.body;
-  newContact.createDate = new Date();
-
-  if (!req.body.name) {
-    handleError(res, "Invalid user input", "Must provide a name.", 400);
-  } else {
-    db.collection(CONTACTS_COLLECTION).insertOne(newContact, function(err, doc) {
-      if (err) {
-        handleError(res, err.message, "Failed to create new contact.");
-      } else {
-        res.status(201).json(doc.ops[0]);
-      }
-    });
-  }
-});
-
-/*  "/api/contacts/:id"
- *    GET: find contact by id
- *    PUT: update contact by id
- *    DELETE: deletes contact by id
- */
-
-app.get("/api/contacts/:id", function(req, res) {
-  db.collection(CONTACTS_COLLECTION).findOne({ _id: new ObjectID(req.params.id) }, function(err, doc) {
-    if (err) {
-      handleError(res, err.message, "Failed to get contact");
-    } else {
-      res.status(200).json(doc);
-    }
-  });
-});
-
-app.put("/api/contacts/:id", function(req, res) {
-  var updateDoc = req.body;
-  delete updateDoc._id;
-
-  db.collection(CONTACTS_COLLECTION).updateOne({_id: new ObjectID(req.params.id)}, {$set: updateDoc}, function(err, doc) {
-    if (err) {
-      handleError(res, err.message, "Failed to update contact");
-    } else {
-      updateDoc._id = req.params.id;
-      res.status(200).json(updateDoc);
-    }
-  });
-});
-
-app.delete("/api/contacts/:id", function(req, res) {
-  db.collection(CONTACTS_COLLECTION).deleteOne({_id: new ObjectID(req.params.id)}, function(err, result) {
-    if (err) {
-      handleError(res, err.message, "Failed to delete contact");
-    } else {
-      res.status(200).json(req.params.id);
-    }
-  });
-});
-
 // USERS API ROUTES BELOW
 
 /*  "/api/users"
  *    GET: finds all users
- *    POST: creates a new user
+ *    POST: finds or creates a new user based on auth0 user info
  */
 
 app.get("/api/users", function(req, res) {
+  console.log('>>> get("/api/users")');
+
   db.collection(USERS_COLLECTION).find({}).toArray(function(err, docs) {
     if (err) {
       handleError(res, err.message, "Failed to get users.");
@@ -139,17 +107,35 @@ app.get("/api/users", function(req, res) {
 });
 
 app.post("/api/users", function(req, res) {
-  var newUser = req.body;
-  newUser.createDate = new Date();
+  console.log('>>> post("/api/users") req: ' + JSON.stringify(req.body));
 
-  if (!req.body.name) {
-    handleError(res, "Invalid user input", "Must provide a name.", 400);
+  var user = req.body;
+
+  if (!user.auth0Id) {
+    handleError(res, "Invalid user input", "Must provide an auth0Id.", 400);
   } else {
-    db.collection(USERS_COLLECTION).insertOne(newUser, function(err, doc) {
+    // Check if user exists
+    db.collection(USERS_COLLECTION).findOne({auth0Id: user.auth0Id}, function(err, existingUser) {
       if (err) {
-        handleError(res, err.message, "Failed to create new user.");
+        handleError(res, err.message, "Failed to get user");
       } else {
-        res.status(201).json(doc.ops[0]);
+        if (existingUser) {
+          // User exists, so return it
+          res.status(200).json(existingUser);
+        } else {
+          // User doesn't exsist in database yet, so create it
+          user.createdAt = new Date();
+          user.updatedAt = new Date();
+          user.newlyCreated = true;
+
+          db.collection(USERS_COLLECTION).insertOne(user, function(err, doc) {
+            if (err) {
+              handleError(res, err.message, "Failed to create new user.");
+            } else {
+              res.status(201).json(doc.ops[0]);
+            }
+          });
+        }
       }
     });
   }
@@ -158,10 +144,11 @@ app.post("/api/users", function(req, res) {
 /*  "/api/users/:id"
  *    GET: find user by id
  *    PUT: update user by id
- *    DELETE: deletes user by id
  */
 
 app.get("/api/users/:id", function(req, res) {
+  console.log('>>> get("/api/users/:id") id: ' + JSON.stringify(req.params.id));
+
   db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(req.params.id) }, function(err, doc) {
     if (err) {
       handleError(res, err.message, "Failed to get user");
@@ -172,25 +159,29 @@ app.get("/api/users/:id", function(req, res) {
 });
 
 app.put("/api/users/:id", function(req, res) {
+  console.log('>>> put("/api/users/:id") id: ' + JSON.stringify(req.params.id) + ' req: ' + JSON.stringify(req.body));
+
   var updateDoc = req.body;
+  var userId = req.params.id;
+
+  console.log(`Update request for user ${userId}:`);
+  console.log(updateDoc);
+
   delete updateDoc._id;
 
-  db.collection(USERS_COLLECTION).updateOne({_id: new ObjectID(req.params.id)}, updateDoc, function(err, doc) {
+  if (recording) {
+    addUserUpdateDatapoint(userId, updateDoc);
+  }
+
+  updateDoc.updatedAt = new Date();
+
+
+  db.collection(USERS_COLLECTION).updateOne({_id: new ObjectID(userId)}, {$set: updateDoc}, function(err, doc) {
     if (err) {
       handleError(res, err.message, "Failed to update user");
     } else {
-      updateDoc._id = req.params.id;
+      updateDoc._id = userId;
       res.status(200).json(updateDoc);
-    }
-  });
-});
-
-app.delete("/api/users/:id", function(req, res) {
-  db.collection(USERS_COLLECTION).deleteOne({_id: new ObjectID(req.params.id)}, function(err, result) {
-    if (err) {
-      handleError(res, err.message, "Failed to delete user");
-    } else {
-      res.status(200).json(req.params.id);
     }
   });
 });
