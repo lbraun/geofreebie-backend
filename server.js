@@ -40,18 +40,26 @@ function addUserUpdateDatapoint(userId, updatedAttributes) {
     if (err) {
       console.log(err.message);
     } else {
-      for (var key in updatedAttributes) {
-        if (key == "updatedAt") { continue; }
-        if (updatedAttributes.hasOwnProperty(key)) {
-          var oldValue = user[key];
-          var newValue = updatedAttributes[key];
+      if (user) {
+        for (var key in updatedAttributes) {
+          if (key == "updatedAt") { continue; }
+          if (updatedAttributes.hasOwnProperty(key)) {
+            var oldValue = user[key];
+            var newValue = updatedAttributes[key];
 
-          recordDatapoint({
-            userId: userId,
-            coords: updatedAttributes.coords || user.coords,
-            action: `Updated ${key} from ${oldValue} to ${newValue}`,
-          });
+            recordDatapoint({
+              userId: userId,
+              coords: updatedAttributes.coords || user.coords,
+              action: `Updated ${key} from ${oldValue} to ${newValue}`,
+            });
+          }
         }
+      } else {
+        recordDatapoint({
+          userId: userId,
+          coords: updatedAttributes.coords,
+          action: `Created user with attributes ${updatedAttributes}`,
+        });
       }
     }
   });
@@ -81,6 +89,8 @@ function handleError(res, reason, message, code) {
  */
 
 app.get("/api/users", function(req, res) {
+  console.log('>>> get("/api/users")');
+
   db.collection(USERS_COLLECTION).find({}).toArray(function(err, docs) {
     if (err) {
       handleError(res, err.message, "Failed to get users.");
@@ -91,6 +101,8 @@ app.get("/api/users", function(req, res) {
 });
 
 app.post("/api/users", function(req, res) {
+  console.log('>>> post("/api/users") req: ' + JSON.stringify(req.body));
+
   var user = req.body;
 
   if (!user.auth0Id) {
@@ -129,6 +141,8 @@ app.post("/api/users", function(req, res) {
  */
 
 app.get("/api/users/:id", function(req, res) {
+  console.log('>>> get("/api/users/:id") id: ' + JSON.stringify(req.params.id));
+
   db.collection(USERS_COLLECTION).findOne({ _id: new ObjectID(req.params.id) }, function(err, doc) {
     if (err) {
       handleError(res, err.message, "Failed to get user");
@@ -139,11 +153,13 @@ app.get("/api/users/:id", function(req, res) {
 });
 
 app.put("/api/users/:id", function(req, res) {
-  console.log("Update request body:");
-  console.log(req.body);
+  console.log('>>> put("/api/users/:id") id: ' + JSON.stringify(req.params.id) + ' req: ' + JSON.stringify(req.body));
 
   var updateDoc = req.body;
   var userId = req.params.id;
+
+  console.log(`Update request for user ${userId}:`);
+  console.log(updateDoc);
 
   delete updateDoc._id;
 
