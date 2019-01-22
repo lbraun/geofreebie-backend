@@ -169,30 +169,33 @@ router.route("/users/:user_id")
           handleError(res, "Invalid user id", "User not found", 404);
         }
 
-        var whitelistedAttributes = [
-          "approved",
-          "auth0Id",
-          "contactInformation",
-          "coords",
-          "family_name",
-          "gender",
-          "given_name",
-          "hasConsented",
-          "locale",
-          "loginsCount",
-          "name",
-          "newlyCreated",
-          "nickname",
-          "offer",
-          "offersCompleted",
-          "picture",
-          "shareLocation",
-          "useLocation",
-        ];
+        var whitelistedAttributes = {
+          "approved":           false,
+          "auth0Id":            false,
+          "contactInformation": true,
+          "coords":             true,
+          "family_name":        true,
+          "gender":             true,
+          "given_name":         true,
+          "hasConsented":       true,
+          "locale":             true,
+          "loginsCount":        true,
+          "name":               true,
+          "newlyCreated":       true,
+          "nickname":           true,
+          "offer":              true,
+          "offersCompleted":    true,
+          "picture":            true,
+          "shareLocation":      true,
+          "useLocation":        true,
+        };
 
-        for (var i = whitelistedAttributes.length - 1; i >= 0; i--) {
-          var attribute = whitelistedAttributes[i]
-          user[attribute] = req.body[attribute] || user[attribute];
+        for (var attribute in req.body) {
+          if (whitelistedAttributes[attribute]) {
+            user[attribute] = req.body[attribute];
+          } else {
+            console.log("Trying to update non-whitelisted attribute " + attribute);
+          }
         }
 
         if (recording) {
