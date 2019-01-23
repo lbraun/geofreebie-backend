@@ -85,6 +85,7 @@ var router = express.Router();
 router.use(function(req, res, next) {
     console.log("\n>>>>> " + req.method + " " + req.originalUrl);
     console.log(">>>>> body: " + JSON.stringify(req.body));
+    console.log(">>>>> params: " + JSON.stringify(req.params));
     next(); // Make sure we go to the next routes and don't stop here
 });
 
@@ -215,46 +216,65 @@ router.route("/users/:user_id")
   });
 
 
-// Routes that end in /pendingReviews/:user_id
+// Routes that end in /pendingReviews
 // ----------------------------------------------------
-router.route("/pendingReviews/:user_id")
+router.route("/pendingReviews")
 
-  // Create a new review for a given user (the giver)
+  // Create a new review for a given user
   .post(function(req, res) {
     var review = req.body;
 
-    if (!review._giverId) {
-      handleError(res, "Invalid review input", "Must provide a _giverId.", 400);
+    if (!review.offerTitle) {
+      handleError(res, "Invalid review input", "Must provide an offerTitle.", 400);
     } else {
-      var newReview = new Review(review);
-      newReview.status = "pending";
-
-      newReview.save(function(err) {
+      User.findById(review._userId, function(err, user) {
         if (err) {
-          handleError(res, err.message, "Failed to create new review.");
+          console.log(err.message);
         } else {
-          res.status(201).json({ _id: newReview.id });
+          if (user) {
+            var newReview = new Review({
+              _userId: user.id,
+              userType: review.userType,
+              offerTitle: review.offerTitle,
+              status: "pending",
+            });
+
+            if (review.userType == "recipient") {
+              newReview._otherUserId = review._otherUserId;
+            }
+
+            newReview.save(function(err) {
+              if (err) {
+                handleError(res, err.message, "Failed to create new review.");
+              } else {
+                res.status(201).json({ _id: newReview.id });
+              }
+            });
+          } else {
+            handleError(res, "Invalid review input", "Must provide a valid _userId.", 400);
+          }
         }
       });
     }
   })
 
-  // Find reviews by giver or recipient
+  // Find reviews by user
   .get(function(req, res) {
-    var userId = req.params.user_id;
+    var userId = req.query._userId;
 
-    Review.find({
-        status: "pending",
-        $or:[ {_giverId: userId}, {_recipientId: userId} ]
-      },
-      function(err, reviews) {
-        if (err) {
-          handleError(res, err.message, "Failed to get reviews.");
-        } else {
-          res.status(200).json(reviews);
-        }
-      });
+    Review.find({status: "pending", _userId: userId}, function(err, reviews) {
+      if (err) {
+        handleError(res, err.message, "Failed to get reviews.");
+      } else {
+        res.status(200).json(reviews);
+      }
+    });
   })
+
+
+// Routes that end in /pendingReviews/:review_id
+// ----------------------------------------------------
+router.route("/pendingReviews/:review_id")
 
   // Update a review by id
   .put(function(req, res) {
@@ -267,10 +287,13 @@ router.route("/pendingReviews/:user_id")
         }
 
         var whitelistedAttributes = {
-          "_giverId":           true,
-          "_recipientId":       true,
-          "giverResponses":     true,
-          "recipientResponses": true,
+          "_userId":            false,
+          "_otherUserId":       true,
+          "offerTitle":         true,
+          "question1":          true,
+          "question2":          true,
+          "question3":          true,
+          "question4":          true,
           "status":             true,
           "dateSubmitted":      true,
         };
