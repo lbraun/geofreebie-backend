@@ -6,6 +6,7 @@ var mongodb = require("mongodb");
 var ObjectID = mongodb.ObjectID;
 
 var User = require("./user");
+var Review = require("./review");
 var Datapoint = require("./datapoint");
 
 var recording = true;
@@ -207,6 +208,83 @@ router.route("/users/:user_id")
             handleError(res, err.message, "Failed to update user.");
           } else {
             res.status(201).json({ _id: user.id });
+          }
+        });
+      }
+    });
+  });
+
+
+// Routes that end in /reviews/:user_id
+// ----------------------------------------------------
+router.route("/reviews/:user_id")
+
+  // Create a new review for a given user (the giver)
+  .post(function(req, res) {
+    var review = req.body;
+
+    if (!review._giverId) {
+      handleError(res, "Invalid review input", "Must provide a _giverId.", 400);
+    } else {
+      var newReview = new Review(review);
+      newReview.status = "pending";
+
+      newReview.save(function(err) {
+        if (err) {
+          handleError(res, err.message, "Failed to create new review.");
+        } else {
+          res.status(201).json({ _id: newReview.id });
+        }
+      });
+    }
+  })
+
+  // Find reviews by giver or recipient
+  .get(function(req, res) {
+    var userId = req.params.user_id;
+
+    Review.find({ $or:[ {_giverId: userId}, {_recipientId: userId} ]},
+      function(err, reviews) {
+        if (err) {
+          handleError(res, err.message, "Failed to get reviews.");
+        } else {
+          res.status(200).json(reviews);
+        }
+      });
+  })
+
+  // Update a review by id
+  .put(function(req, res) {
+    Review.findById(req.params.review_id, function(err, review) {
+      if (err) {
+        handleError(res, err.message, "Failed to get review for updating.");
+      } else {
+        if (!review) {
+          handleError(res, "Invalid review id", "Review not found", 404);
+        }
+
+        var whitelistedAttributes = {
+          "_giverId":           true,
+          "_recipientId":       true,
+          "giverResponses":     true,
+          "recipientResponses": true,
+          "status":             true,
+          "dateSubmitted":      true,
+        };
+
+        for (var attribute in req.body) {
+          if (whitelistedAttributes[attribute]) {
+            review[attribute] = req.body[attribute];
+          } else {
+            console.log("Trying to update non-whitelisted attribute " + attribute);
+          }
+        }
+
+        review.save(function(err) {
+          if (err) {
+            handleError(res, err.message, "Failed to update review.");
+          } else {
+            res.status(201).json({ _id: review.id });
           }
         });
       }
