@@ -243,7 +243,10 @@ router.route("/pendingReviews/:user_id")
   .get(function(req, res) {
     var userId = req.params.user_id;
 
-    Review.find({ $or:[ {_giverId: userId}, {_recipientId: userId} ]},
+    Review.find({
+        status: "pending",
+        $or:[ {_giverId: userId}, {_recipientId: userId} ]
+      },
       function(err, reviews) {
         if (err) {
           handleError(res, err.message, "Failed to get reviews.");
