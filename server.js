@@ -215,9 +215,9 @@ router.route("/users/:user_id")
   });
 
 
-// Routes that end in /reviews/:user_id
+// Routes that end in /pendingReviews/:user_id
 // ----------------------------------------------------
-router.route("/reviews/:user_id")
+router.route("/pendingReviews/:user_id")
 
   // Create a new review for a given user (the giver)
   .post(function(req, res) {
