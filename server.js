@@ -6,6 +6,7 @@ var mongodb = require("mongodb");
 var ObjectID = mongodb.ObjectID;
 
 var User = require("./user");
+var Review = require("./review");
 var Datapoint = require("./datapoint");
 
 var recording = true;
@@ -84,6 +85,7 @@ var router = express.Router();
 router.use(function(req, res, next) {
     console.log("\n>>>>> " + req.method + " " + req.originalUrl);
     console.log(">>>>> body: " + JSON.stringify(req.body));
+    console.log(">>>>> params: " + JSON.stringify(req.params));
     next(); // Make sure we go to the next routes and don't stop here
 });
 
@@ -207,6 +209,108 @@ router.route("/users/:user_id")
             handleError(res, err.message, "Failed to update user.");
           } else {
             res.status(201).json({ _id: user.id });
+          }
+        });
+      }
+    });
+  });
+
+
+// Routes that end in /pendingReviews
+// ----------------------------------------------------
+router.route("/pendingReviews")
+
+  // Create a new review for a given user
+  .post(function(req, res) {
+    var review = req.body;
+
+    if (!review.offerTitle) {
+      handleError(res, "Invalid review input", "Must provide an offerTitle.", 400);
+    } else {
+      User.findById(review._userId, function(err, user) {
+        if (err) {
+          console.log(err.message);
+        } else {
+          if (user) {
+            var newReview = new Review({
+              _userId: user.id,
+              userType: review.userType,
+              offerTitle: review.offerTitle,
+              status: "pending",
+            });
+
+            if (review.userType == "recipient") {
+              newReview._otherUserId = review._otherUserId;
+            }
+
+            newReview.save(function(err) {
+              if (err) {
+                handleError(res, err.message, "Failed to create new review.");
+              } else {
+                res.status(201).json({ _id: newReview.id });
+              }
+            });
+          } else {
+            handleError(res, "Invalid review input", "Must provide a valid _userId.", 400);
+          }
+        }
+      });
+    }
+  })
+
+  // Find reviews by user
+  .get(function(req, res) {
+    var userId = req.query._userId;
+
+    Review.find({status: "pending", _userId: userId}, function(err, reviews) {
+      if (err) {
+        handleError(res, err.message, "Failed to get reviews.");
+      } else {
+        res.status(200).json(reviews);
+      }
+    });
+  })
+
+
+// Routes that end in /pendingReviews/:review_id
+// ----------------------------------------------------
+router.route("/pendingReviews/:review_id")
+
+  // Update a review by id
+  .put(function(req, res) {
+    Review.findById(req.params.review_id, function(err, review) {
+      if (err) {
+        handleError(res, err.message, "Failed to get review for updating.");
+      } else {
+        if (!review) {
+          handleError(res, "Invalid review id", "Review not found", 404);
+        }
+
+        var whitelistedAttributes = {
+          "_userId":            false,
+          "_otherUserId":       true,
+          "offerTitle":         true,
+          "question1":          true,
+          "question2":          true,
+          "question3":          true,
+          "question4":          true,
+          "status":             true,
+          "dateSubmitted":      true,
+        };
+
+        for (var attribute in req.body) {
+          if (whitelistedAttributes[attribute]) {
+            review[attribute] = req.body[attribute];
+          } else {
+            console.log("Trying to update non-whitelisted attribute " + attribute);
+          }
+        }
+
+        review.save(function(err) {
+          if (err) {
+            handleError(res, err.message, "Failed to update review.");
+          } else {
+            res.status(201).json({ _id: review.id });
           }
         });
       }
