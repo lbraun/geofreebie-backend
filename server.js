@@ -146,6 +146,29 @@ router.route('/users')
   });
 
 
+// Routes that end in /offer_pictures/:user_id
+// ----------------------------------------------------
+router.route("/offer_pictures/:user_id")
+
+  // Find an offer photo by user id
+  .get(function(req, res) {
+    User.findById(req.params.user_id, function(err, user) {
+      if (err) {
+        handleError(res, err.message, "Failed to get user.");
+      } else {
+        if (user.offer.picture) {
+          var img = new Buffer(user.offer.picture, 'base64');
+          res.writeHead(200, {
+            'Content-Type': 'image/png',
+            'Content-Length': img.length
+          });
+          res.end(img);
+        }
+      }
+    });
+  });
+
+
 // Routes that end in /users/:user_id
 // ----------------------------------------------------
 router.route("/users/:user_id")
