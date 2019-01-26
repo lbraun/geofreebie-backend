@@ -129,7 +129,11 @@ router.route('/users')
         if (err) {
           handleError(res, err.message, "Failed to get users.");
         } else {
-          users.map(user => user.offer.picture = !!user.offer.picture);
+          for (var i = users.length - 1; i >= 0; i--) {
+            if (users[i].offer.picture) {
+              users[i].offer.picture = true;
+            }
+          }
           res.status(200).json(users);
         }
     })
@@ -215,57 +219,57 @@ router.route("/users/:user_id")
       } else {
         if (!user) {
           handleError(res, "Invalid user id", "User not found", 404);
-        }
-
-        // Don't update picture if user is just sending our URI back to us
-        if (user.pictureFormat == "uri") {
-          delete user.picture;
-        }
-
-        var whitelistedAttributes = {
-          "approved":                      false,
-          "auth0Id":                       false,
-          "contactInformation":            true,
-          "coords":                        true,
-          "demographicSurvey":             true,
-          "family_name":                   true,
-          "gender":                        true,
-          "given_name":                    true,
-          "hasCompletedConsentForm":       true,
-          "hasCompletedDemographicSurvey": true,
-          "hasCompletedLsnsSurvey":        true,
-          "locale":                        true,
-          "loginsCount":                   true,
-          "lsnsSurvey":                    true,
-          "name":                          true,
-          "newlyCreated":                  true,
-          "nickname":                      true,
-          "offer":                         true,
-          "offersCompleted":               true,
-          "picture":                       true,
-          "shareLocation":                 true,
-          "useLocation":                   true,
-        };
-
-        for (var attribute in req.body) {
-          if (whitelistedAttributes[attribute]) {
-            user[attribute] = req.body[attribute];
-          } else {
-            console.log("Trying to update non-whitelisted attribute " + attribute);
+        } else {
+          // Don't update picture if user is just sending our URI back to us
+          if (user.pictureFormat == "uri") {
+            delete user.picture;
           }
-        }
 
-        if (recording) {
-          addUserUpdateDatapoint(user.id, req.body);
-        }
+          var whitelistedAttributes = {
+            "approved":                      false,
+            "auth0Id":                       false,
+            "contactInformation":            true,
+            "coords":                        true,
+            "demographicSurvey":             true,
+            "family_name":                   true,
+            "gender":                        true,
+            "given_name":                    true,
+            "hasCompletedConsentForm":       true,
+            "hasCompletedDemographicSurvey": true,
+            "hasCompletedLsnsSurvey":        true,
+            "locale":                        true,
+            "loginsCount":                   true,
+            "lsnsSurvey":                    true,
+            "name":                          true,
+            "newlyCreated":                  true,
+            "nickname":                      true,
+            "offer":                         true,
+            "offersCompleted":               true,
+            "picture":                       true,
+            "shareLocation":                 true,
+            "useLocation":                   true,
+          };
 
-        user.save(function(err) {
-          if (err) {
-            handleError(res, err.message, "Failed to update user.");
-          } else {
-            res.status(201).json({ _id: user.id });
+          for (var attribute in req.body) {
+            if (whitelistedAttributes[attribute]) {
+              user[attribute] = req.body[attribute];
+            } else {
+              console.log("Trying to update non-whitelisted attribute " + attribute);
+            }
           }
-        });
+
+          if (recording) {
+            addUserUpdateDatapoint(user.id, req.body);
+          }
+
+          user.save(function(err) {
+            if (err) {
+              handleError(res, err.message, "Failed to update user.");
+            } else {
+              res.status(201).json({ _id: user.id });
+            }
+          });
+        }
       }
     });
   });
