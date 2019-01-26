@@ -103,10 +103,33 @@ router.route('/users')
 
   // Find all users
   .get(function(req, res) {
-    User.find(function(err, users) {
+    var fields = {
+      approved: true,
+      contactInformation: true,
+      coords: true,
+      family_name: true,
+      gender: true,
+      given_name: true,
+      hasCompletedConsentForm: true,
+      hasCompletedDemographicSurvey: true,
+      hasCompletedLsnsSurvey: true,
+      locale: true,
+      loginsCount: true,
+      name: true,
+      newlyCreated: true,
+      nickname: true,
+      offer: true,
+      offersCompleted: true,
+      picture: true,
+      shareLocation: true,
+      useLocation: true,
+    };
+
+    User.find({}, fields, function(err, users) {
         if (err) {
           handleError(res, err.message, "Failed to get users.");
         } else {
+          users.map(user => user.offer.picture = !!user.offer.picture);
           res.status(200).json(users);
         }
     })
@@ -192,6 +215,11 @@ router.route("/users/:user_id")
       } else {
         if (!user) {
           handleError(res, "Invalid user id", "User not found", 404);
+        }
+
+        // Don't update picture if user is just sending our URI back to us
+        if (user.pictureFormat == "uri") {
+          delete user.picture;
         }
 
         var whitelistedAttributes = {

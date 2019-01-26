@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema({
       description: String,
       available: Boolean,
   },
-  offersCompleted: Number,
+  offersCompleted: { type: Number, default: 0 },
   picture: String,
   shareLocation: Boolean,
   useLocation: Boolean,
