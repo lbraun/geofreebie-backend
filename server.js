@@ -259,7 +259,7 @@ router.route("/users/:user_id")
           }
 
           if (recording) {
-            addUserUpdateDatapoint(user.id, req.body);
+            addUserUpdateDatapoint(req.params.user_id, req.body);
           }
 
           user.save(function(err) {
