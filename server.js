@@ -35,8 +35,8 @@ db.once('open', function () {
 });
 
 // Method to add datapoints from user updates
-function addUserUpdateDatapoint(userId, updatedAttributes) {
-  User.findById(userId, function(err, user) {
+function addUserUpdateDatapoint(_userId, updatedAttributes) {
+  User.findById(_userId, function(err, user) {
     if (err) {
       console.log(err.message);
     } else {
@@ -48,7 +48,7 @@ function addUserUpdateDatapoint(userId, updatedAttributes) {
             var newValue = updatedAttributes[key];
 
             recordDatapoint({
-              userId: userId,
+              _userId: _userId,
               coords: updatedAttributes.coords || user.coords,
               action: `Updated ${key} from ${oldValue} to ${newValue}`,
             });
@@ -56,7 +56,7 @@ function addUserUpdateDatapoint(userId, updatedAttributes) {
         }
       } else {
         recordDatapoint({
-          userId: userId,
+          _userId: _userId,
           coords: updatedAttributes.coords,
           action: `Created user with attributes ${updatedAttributes}`,
         });
@@ -319,9 +319,9 @@ router.route("/pendingReviews")
 
   // Find reviews by user
   .get(function(req, res) {
-    var userId = req.query._userId;
+    var _userId = req.query._userId;
 
-    Review.find({status: "pending", _userId: userId}, function(err, reviews) {
+    Review.find({status: "pending", _userId: _userId}, function(err, reviews) {
       if (err) {
         handleError(res, err.message, "Failed to get reviews.");
       } else {
