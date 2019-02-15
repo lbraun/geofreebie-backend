@@ -2,6 +2,14 @@
 
 This little app serves data for geofreebie ([https://github.com/lbraun/geofreebie](https://github.com/lbraun/geofreebie)).
 
+## Running the server locally
+
+To start the server, navigate to the project's root directory and run:
+
+```bash
+node server.js
+```
+
 ## Tests
 
 To test the **user** endpoints locally with curl, run:
