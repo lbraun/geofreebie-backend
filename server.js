@@ -2,8 +2,6 @@ var mongoose = require("mongoose");
 var express = require("express");
 var cors = require("cors");
 var bodyParser = require("body-parser");
-var mongodb = require("mongodb");
-var ObjectID = mongodb.ObjectID;
 
 var User = require("./user");
 var Review = require("./review");
